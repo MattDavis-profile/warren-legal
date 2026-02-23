@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personal Directive — Document Reader</title>
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #141e27;
+    --surface: #1b2838;
+    --surface-raised: #223044;
+    --accent: #5eb8a2;
+    --accent-glow: rgba(94, 184, 162, 0.13);
+    --text: #e4e8eb;
+    --text-muted: #8fa0ad;
+    --text-dim: #5c7080;
+    --border: rgba(255,255,255,0.07);
+    --radius: 14px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.7;
+    padding: 2rem 1rem 6rem;
+  }
+
+  .container { max-width: 720px; margin: 0 auto; }
+
+  header { text-align: center; padding: 2.5rem 0 2rem; }
+
+  header h1 {
+    font-family: 'Literata', serif;
+    font-size: 1.85rem;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.4rem;
+  }
+  header p { color: var(--text-muted); font-size: 0.95rem; }
+
+  .controls {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.4rem 1.6rem;
+    margin-bottom: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    position: sticky;
+    top: 0.5rem;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+  }
+
+  .btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    padding: 0.7rem 1.4rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .btn-play { background: var(--accent); color: var(--bg); }
+  .btn-play:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn-play.playing { background: #c0392b; color: #fff; }
+
+  .btn-skip {
+    background: var(--surface-raised);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-skip:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+
+  .speed-control {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 0.5rem;
+    color: var(--text-muted); font-size: 0.85rem;
+  }
+  .speed-control select {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--surface-raised);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .progress-bar {
+    width: 100%; height: 4px;
+    background: var(--surface-raised);
+    border-radius: 2px; margin-top: 0.8rem; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: var(--accent);
+    border-radius: 2px; width: 0%; transition: width 0.3s ease;
+  }
+  .now-reading {
+    width: 100%; margin-top: 0.5rem;
+    font-size: 0.8rem; color: var(--text-dim); min-height: 1.2em;
+  }
+
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+  }
+  .section-label {
+    display: inline-block;
+    font-size: 0.7rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--accent);
+    background: var(--accent-glow);
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px; margin-bottom: 1rem;
+  }
+  .section h2 {
+    font-family: 'Literata', serif;
+    font-size: 1.35rem; font-weight: 600;
+    margin-bottom: 1rem; color: var(--text);
+  }
+  .section p {
+    font-size: 1.05rem; line-height: 1.85;
+    color: var(--text); margin-bottom: 0.8rem;
+  }
+
+  .read-segment {
+    transition: background 0.2s ease, color 0.2s ease;
+    border-radius: 4px; padding: 0 2px;
+  }
+  .read-segment.active {
+    background: var(--accent-glow);
+    color: var(--accent);
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px dashed var(--border);
+    margin: 1.2rem 0;
+  }
+
+  .sub-heading {
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 1.2rem 0 0.4rem;
+  }
+
+  @media (max-width: 600px) {
+    .controls { flex-direction: column; align-items: stretch; }
+    .controls .btn { justify-content: center; }
+    .speed-control { margin-left: 0; justify-content: center; }
+    .section { padding: 1.4rem 1.2rem; }
+    header h1 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>📄 Alberta Personal Directive</h1>
+    <p>Form OPG5521 — Rev. 2020-05 (4 pages)</p>
+  </header>
+
+  <div class="controls">
+    <button class="btn btn-play" id="playBtn" onclick="togglePlay()">▶ Play Summary</button>
+    <button class="btn btn-skip" onclick="skipToFull()">⏭ Skip to Full Reading</button>
+    <button class="btn btn-skip" onclick="stopReading()">⏹ Stop</button>
+    <div class="speed-control">
+      <label for="speed">Speed:</label>
+      <select id="speed" onchange="updateSpeed()">
+        <option value="0.6">Very Slow</option>
+        <option value="0.8" selected>Slow</option>
+        <option value="1">Normal</option>
+        <option value="1.2">Faster</option>
+      </select>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+    <div class="now-reading" id="nowReading"></div>
+  </div>
+
+  <!-- PART 1: Summary -->
+  <div class="section" id="summarySection">
+    <span class="section-label">Part 1 — Plain Language Summary</span>
+    <h2>What This Document Is About</h2>
+
+    <p class="read-segment" data-part="summary">
+      This is an Alberta government form called a Personal Directive. Its form number is OPG 5521. It is a legal document created under the Personal Directives Act of Alberta.
+    </p>
+    <p class="read-segment" data-part="summary">
+      A Personal Directive lets you choose someone — called an "agent" — to make personal decisions for you if you ever lose the mental capacity to make those decisions yourself. This is not about money or finances. It covers personal matters like health care, where you live, who you associate with, and other non-financial decisions.
+    </p>
+    <p class="read-segment" data-part="summary">
+      The directive only takes effect when it is officially determined that you no longer have the capacity to make your own personal decisions, as defined by the Personal Directives Act.
+    </p>
+
+    <p class="sub-heading">Key Sections of the Form</p>
+
+    <p class="read-segment" data-part="summary">
+      Section 1 asks whether you want to revoke, meaning cancel, any previous personal directives you may have made.
+    </p>
+    <p class="read-segment" data-part="summary">
+      Section 2 is where you designate your agent. You have three options. Option One lets you name one or more specific people as your agent. Option Two lets you designate the Public Guardian as your agent, but only if no other person is able and willing. Option Three is for situations where you do not wish to name an agent at all, but instead want to leave instructions for a service provider.
+    </p>
+    <p class="read-segment" data-part="summary">
+      Section 3 covers the areas of authority you are granting. Under Option One, you give your agent broad authority over all personal matters. Under Option Two, you can assign different agents to specific areas such as health care, accommodation, who you live with and associate with, social activities, educational activities, employment activities, legal matters, or other personal matters.
+    </p>
+    <p class="read-segment" data-part="summary">
+      Section 4 is optional. It lets you designate an agent to temporarily care for and educate your minor children if you lose capacity.
+    </p>
+    <p class="read-segment" data-part="summary">
+      Section 5 is also optional. It lets you give specific instructions to your agent about how decisions should be made. It also lets you leave instructions for service providers if you have no agent or your agent is unavailable.
+    </p>
+    <p class="read-segment" data-part="summary">
+      Section 6 is optional and lets you provide additional information about your wishes, beliefs, and values to help your agent understand how you would want decisions to be made.
+    </p>
+    <p class="read-segment" data-part="summary">
+      Section 7 is optional. It allows you to name a specific person or persons to determine whether you have lost capacity, as described in section 9 of the Personal Directives Act.
+    </p>
+    <p class="read-segment" data-part="summary">
+      Section 8 is optional and deals with notification. If a determination is made that you lack capacity, you can instruct that copies of the declaration be sent to you, your agents, and any other people you name.
+    </p>
+    <p class="read-segment" data-part="summary">
+      Section 9 is where the document is signed. You sign it in the presence of a witness. The form includes spaces for your name, signature, address, and the same for your witness. Important: the witness cannot be your agent, the spouse or adult interdependent partner of your agent, your own spouse or partner, or anyone who signs on your behalf.
+    </p>
+    <p class="read-segment" data-part="summary">
+      Section 10 is an optional acknowledgement section where your agent confirms they have received a copy of the personal directive and provides their contact information.
+    </p>
+  </div>
+
+  <!-- PART 2: Full verbatim reading -->
+  <div class="section" id="fullSection">
+    <span class="section-label">Part 2 — Full Document, Word for Word</span>
+    <h2>Complete Text of the Personal Directive, Form OPG 5521</h2>
+
+    <p class="read-segment" data-part="full">
+      OPG 5521, Revised 2020-05. Page 1 of 4. Personal Directive. Protected A when completed.
+    </p>
+    <p class="read-segment" data-part="full">
+      "I," — and here the maker's name would be filled in — "make this Personal Directive."
+    </p>
+    <p class="read-segment" data-part="full">
+      "This Personal Directive takes effect with respect to personal matters that relate to me when it is determined, in accordance with the Personal Directives Act, that I do not have capacity to make personal decisions with respect to those matters."
+    </p>
+    <p class="read-segment" data-part="full">
+      "I have placed my initials next to the provisions in this document that form part of my Personal Directive."
+    </p>
+
+    <hr class="divider">
+    <p class="sub-heading">Section 1 — Revocation of Previous Personal Directive</p>
+
+    <p class="read-segment" data-part="full">
+      There is a checkbox for "Not Applicable." Then: Initials — "I revoke all previous personal directives made by me."
+    </p>
+
+    <p class="sub-heading">Section 2 — Designation of Agent</p>
+
+    <p class="read-segment" data-part="full">
+      Option One. Initials — "I designate the following as my agent(s)." There is a blank space to write in the name or names of your chosen agents. There are plus and minus buttons to add or remove names.
+    </p>
+    <p class="read-segment" data-part="full">
+      Or, Option Two. Initials — "I designate the Public Guardian as my agent." Then it reads: "I have consulted with the Public Guardian and the Public Guardian is satisfied that no other person is able and willing to act as my agent. The Public Guardian has agreed to be my agent."
+    </p>
+    <p class="read-segment" data-part="full">
+      Or, Option Three. Initials — "I do not wish to designate an agent, but provide the following information and instructions to be followed by a service provider who intends to provide personal services to me."
+    </p>
+
+    <p class="sub-heading">Section 3 — Areas of Authority</p>
+
+    <p class="read-segment" data-part="full">
+      Option One. Initials — "I give my agent(s) the authority to make personal decisions on my behalf for all the personal matters, of a non-financial nature, that relate to me."
+    </p>
+    <p class="read-segment" data-part="full">
+      Or, Option Two. Initials — "I give the following agent(s) the authority to make personal decisions on my behalf for all the following personal matters, of a non-financial nature, that relate to me."
+    </p>
+    <p class="read-segment" data-part="full">
+      Then there are individual categories, each with a space for initials and the name or names of agents. The categories are: Health Care. Accommodation. With whom I may live and associate. Participation in social activities. Participation in educational activities. Participation in employment activities. Legal matters. Other personal matters. There is also a space to describe other personal matters if applicable.
+    </p>
+
+    <p class="sub-heading">Section 4 — Designation of Agent for Temporary Care and Education of Minor Children (Optional)</p>
+
+    <p class="read-segment" data-part="full">
+      There is a checkbox for "Not applicable." Then: Initials — "I designate" — and here the agent's name would be filled in — "as an agent who has the authority to take over the care and education of my minor child(ren) until one of the events described in section 7(1)(e) of the Personal Directives Act happens."
+    </p>
+
+    <p class="sub-heading">Section 5 — Specific Instructions (Optional)</p>
+
+    <p class="read-segment" data-part="full">
+      There is a checkbox for "Not applicable." Then: Initials — "I instruct my agent(s) to carry out the following specific instructions when making decisions about my personal matters." There is a blank space for writing instructions.
+    </p>
+    <p class="read-segment" data-part="full">
+      Then another option. There is a checkbox for "Not applicable." Then: Initials — "If I have not designated an agent, or if my agent(s) are unable or unwilling to make a personal decision or cannot be contacted after every reasonable effort has been made, I instruct a service provider who intends to provide personal services to me to follow the following instructions that are relevant to the decisions to be made." There is a blank space for those instructions.
+    </p>
+
+    <p class="sub-heading">Section 6 — Other Information (Optional)</p>
+
+    <p class="read-segment" data-part="full">
+      There is a checkbox for "Not applicable." Then: Initials — "I provide the following information to help my agent(s) understand my wishes, beliefs and values when making decisions about my personal matters." There is a blank space for this information.
+    </p>
+
+    <p class="sub-heading">Section 7 — Who Determines My Capacity (Optional)</p>
+
+    <p class="read-segment" data-part="full">
+      There is a checkbox for "Not applicable." Then: Initials — "I designate" — and here the name or names of individuals would be filled in — "to determine my capacity under section 9 of the Personal Directives Act."
+    </p>
+
+    <p class="sub-heading">Section 8 — Notification (Optional)</p>
+
+    <p class="read-segment" data-part="full">
+      There is a checkbox for "Not applicable." Then: Initials — "If a determination is made under the Personal Directives Act that I lack capacity to make personal decisions, I instruct the person making the determination to provide a copy of the declaration to me, the agent(s) I have designated in this Personal Directive, if any, and following people." There is a blank space to list additional people to notify.
+    </p>
+
+    <p class="sub-heading">Section 9 — Signatures</p>
+
+    <p class="read-segment" data-part="full">
+      "Signed by me in the presence of my witness at" — and here the location would be filled in — "in the Province of Alberta, this" — the day — "of" — the month — and the year.
+    </p>
+    <p class="read-segment" data-part="full">
+      There are spaces for the name of the maker, the signature of the maker, the address of the maker. And spaces for the name of the witness, the signature of the witness, and the address of the witness.
+    </p>
+    <p class="read-segment" data-part="full">
+      The form includes a note: "Witness should also initial provisions initialed by maker."
+    </p>
+    <p class="read-segment" data-part="full">
+      Then it lists the persons who may not witness the signing of a Personal Directive: A person designated in the directive as an agent. The spouse or adult interdependent partner of a person designated in the directive as an agent. The spouse or adult interdependent partner of the maker. A person who signs the directive on behalf of the maker. The spouse or adult interdependent partner of a person who signs the directive on behalf of the maker.
+    </p>
+
+    <p class="sub-heading">Section 10 — Acknowledgement (Optional)</p>
+
+    <p class="read-segment" data-part="full">
+      "I (We) acknowledge that I (we) have received a copy of this personal directive." There are spaces for the date of signing, the name of the agent, the signature of the agent, the location where signed, the address of the agent, the telephone number of the agent, and the email address of the agent.
+    </p>
+    <p class="read-segment" data-part="full">
+      That concludes the full text of the Alberta Personal Directive, Form OPG 5521, a four-page document created under the Personal Directives Act.
+    </p>
+  </div>
+</div>
+
+<script>
+  let synth = window.speechSynthesis;
+  let segments = [];
+  let currentIndex = 0;
+  let isPlaying = false;
+  let currentUtterance = null;
+  let rate = 0.8;
+
+  function getAllSegments(part) {
+    return Array.from(document.querySelectorAll(`.read-segment[data-part="${part}"]`));
+  }
+
+  function buildQueue(startPart) {
+    if (startPart === 'summary') {
+      segments = [...getAllSegments('summary'), ...getAllSegments('full')];
+    } else {
+      segments = getAllSegments('full');
+    }
+    currentIndex = 0;
+  }
+
+  function updateProgress() {
+    const pct = segments.length > 0 ? ((currentIndex) / segments.length) * 100 : 0;
+    document.getElementById('progress').style.width = pct + '%';
+  }
+
+  function clearHighlights() {
+    document.querySelectorAll('.read-segment').forEach(el => el.classList.remove('active'));
+  }
+
+  function speakSegment(index) {
+    if (index >= segments.length) {
+      stopReading();
+      document.getElementById('nowReading').textContent = '✓ Reading complete.';
+      return;
+    }
+
+    const el = segments[index];
+    const text = el.textContent.trim();
+
+    clearHighlights();
+    el.classList.add('active');
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const partLabel = el.dataset.part === 'summary' ? 'Summary' : 'Full Reading';
+    document.getElementById('nowReading').textContent = `Reading: ${partLabel} — paragraph ${index + 1} of ${segments.length}`;
+
+    currentUtterance = new SpeechSynthesisUtterance(text);
+    currentUtterance.rate = rate;
+    currentUtterance.pitch = 1;
+    currentUtterance.lang = 'en-CA';
+
+    const voices = synth.getVoices();
+    const preferred = voices.find(v => v.lang.startsWith('en') && v.name.includes('Google')) ||
+                      voices.find(v => v.lang.startsWith('en-CA')) ||
+                      voices.find(v => v.lang.startsWith('en') && v.localService === false) ||
+                      voices.find(v => v.lang.startsWith('en'));
+    if (preferred) currentUtterance.voice = preferred;
+
+    currentUtterance.onend = () => {
+      currentIndex = index + 1;
+      updateProgress();
+      if (isPlaying) speakSegment(currentIndex);
+    };
+
+    currentUtterance.onerror = (e) => {
+      if (e.error !== 'canceled') {
+        currentIndex = index + 1;
+        if (isPlaying) speakSegment(currentIndex);
+      }
+    };
+
+    synth.speak(currentUtterance);
+  }
+
+  function togglePlay() {
+    if (isPlaying) { stopReading(); return; }
+    if (segments.length === 0 || currentIndex >= segments.length) { buildQueue('summary'); }
+    isPlaying = true;
+    document.getElementById('playBtn').textContent = '⏸ Pause';
+    document.getElementById('playBtn').classList.add('playing');
+    speakSegment(currentIndex);
+  }
+
+  function skipToFull() {
+    stopReading();
+    buildQueue('full');
+    isPlaying = true;
+    document.getElementById('playBtn').textContent = '⏸ Pause';
+    document.getElementById('playBtn').classList.add('playing');
+    speakSegment(0);
+  }
+
+  function stopReading() {
+    synth.cancel();
+    isPlaying = false;
+    clearHighlights();
+    document.getElementById('playBtn').textContent = '▶ Play Summary';
+    document.getElementById('playBtn').classList.remove('playing');
+  }
+
+  function updateSpeed() {
+    rate = parseFloat(document.getElementById('speed').value);
+    if (isPlaying) { synth.cancel(); speakSegment(currentIndex); }
+  }
+
+  if (synth.onvoiceschanged !== undefined) { synth.onvoiceschanged = () => {}; }
+  synth.getVoices();
+</script>
+
+</body>
+</html>
