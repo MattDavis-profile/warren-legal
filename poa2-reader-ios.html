@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>POA-2 Form P-2 — Document Reader</title>
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #22223a;
+    --surface-raised: #2a2a45;
+    --accent: #e0a458;
+    --accent-glow: rgba(224, 164, 88, 0.15);
+    --text: #e8e4df;
+    --text-muted: #9a96a6;
+    --text-dim: #6b6880;
+    --border: rgba(255,255,255,0.06);
+    --radius: 14px;
+    --warning: #e8a838;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.7;
+    padding: 2rem 1rem 6rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .container { max-width: 720px; margin: 0 auto; }
+
+  header { text-align: center; padding: 2.5rem 0 2rem; }
+  header h1 {
+    font-family: 'Literata', serif;
+    font-size: 1.85rem; font-weight: 600;
+    color: var(--accent); letter-spacing: -0.02em;
+    margin-bottom: 0.4rem;
+  }
+  header p { color: var(--text-muted); font-size: 0.95rem; }
+
+  .controls {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.4rem 1.6rem;
+    margin-bottom: 2rem;
+    display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center;
+    position: sticky; top: 0; z-index: 100;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem; font-weight: 600;
+    border: none; border-radius: 10px;
+    padding: 0.75rem 1.3rem;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: all 0.15s ease;
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    min-height: 48px;
+  }
+  .btn-play { background: var(--accent); color: var(--bg); }
+  .btn-play:active { filter: brightness(0.9); }
+  .btn-play.playing { background: #c0392b; color: #fff; }
+
+  .btn-skip {
+    background: var(--surface-raised);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-skip:active { color: var(--text); }
+
+  .speed-control {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 0.5rem;
+    color: var(--text-muted); font-size: 0.85rem;
+  }
+  .speed-control select {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--surface-raised); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.5rem 0.7rem; font-size: 0.9rem;
+    min-height: 44px;
+  }
+
+  .progress-bar {
+    width: 100%; height: 5px;
+    background: var(--surface-raised);
+    border-radius: 3px; margin-top: 0.8rem; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: var(--accent);
+    border-radius: 3px; width: 0%; transition: width 0.3s ease;
+  }
+  .now-reading {
+    width: 100%; margin-top: 0.5rem;
+    font-size: 0.8rem; color: var(--text-dim); min-height: 1.4em;
+  }
+
+  .ios-banner {
+    display: none;
+    background: rgba(232, 168, 56, 0.12);
+    border: 1px solid rgba(232, 168, 56, 0.3);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .ios-banner.visible { display: block; }
+  .ios-banner p {
+    color: var(--warning); font-size: 0.95rem; font-weight: 500;
+  }
+  .ios-banner .tap-icon {
+    font-size: 1.6rem; display: block; margin-bottom: 0.4rem;
+  }
+
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem; margin-bottom: 1.5rem;
+  }
+  .section-label {
+    display: inline-block;
+    font-size: 0.7rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--accent); background: var(--accent-glow);
+    padding: 0.3rem 0.8rem; border-radius: 6px;
+    margin-bottom: 1rem;
+  }
+  .section h2 {
+    font-family: 'Literata', serif;
+    font-size: 1.35rem; font-weight: 600;
+    margin-bottom: 1rem; color: var(--text);
+  }
+  .section p {
+    font-size: 1.05rem; line-height: 1.85;
+    color: var(--text); margin-bottom: 0.8rem;
+  }
+
+  .read-segment {
+    transition: background 0.2s ease, color 0.2s ease;
+    border-radius: 4px; padding: 2px 3px;
+  }
+  .read-segment.active {
+    background: var(--accent-glow); color: var(--accent);
+  }
+
+  .divider {
+    border: none; border-top: 1px dashed var(--border); margin: 1.2rem 0;
+  }
+  .sub-heading {
+    font-weight: 600; color: var(--accent);
+    font-size: 0.85rem; text-transform: uppercase;
+    letter-spacing: 0.08em; margin: 1.2rem 0 0.4rem;
+  }
+  .footnote { font-size: 0.95rem; color: var(--text-muted); line-height: 1.75; }
+
+  @media (max-width: 600px) {
+    .controls { flex-direction: column; align-items: stretch; }
+    .controls .btn { justify-content: center; }
+    .speed-control { margin-left: 0; justify-content: center; }
+    .section { padding: 1.4rem 1.2rem; }
+    header h1 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>📄 POA-2 — Form P-2</h1>
+    <p>Affidavit of Attestation of an Enduring Power of Attorney</p>
+  </header>
+
+  <div class="controls">
+    <button class="btn btn-play" id="playBtn" onclick="handlePlay()">▶ Play Summary</button>
+    <button class="btn btn-skip" onclick="handleSkipToFull()">⏭ Full Reading</button>
+    <button class="btn btn-skip" onclick="handleStop()">⏹ Stop</button>
+    <div class="speed-control">
+      <label for="speed">Speed:</label>
+      <select id="speed" onchange="handleSpeedChange()">
+        <option value="0.6">Very Slow</option>
+        <option value="0.8" selected>Slow</option>
+        <option value="1">Normal</option>
+        <option value="1.2">Faster</option>
+      </select>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+    <div class="now-reading" id="nowReading"></div>
+  </div>
+
+  <div class="ios-banner" id="iosBanner" onclick="resumeFromTap()">
+    <p><span class="tap-icon">👆</span>Tap here to continue listening<br><small>iOS paused playback — tap to resume</small></p>
+  </div>
+
+  <!-- PART 1: Summary -->
+  <div class="section" id="summarySection">
+    <span class="section-label">Part 1 — Plain Language Summary</span>
+    <h2>What This Document Is About</h2>
+
+    <p class="read-segment" data-part="summary">
+      This is a legal form used in Alberta, Canada. It is called Form P-2, also known as POA-2. POA stands for Power of Attorney.
+    </p>
+    <p class="read-segment" data-part="summary">
+      The purpose of this form is to provide a sworn statement, called an affidavit, from a witness who watched someone sign an Enduring Power of Attorney on behalf of another person — the "donor."
+    </p>
+    <p class="read-segment" data-part="summary">
+      An Enduring Power of Attorney is a legal document where one person gives another person the authority to make decisions for them, even if they later become mentally unable to make those decisions themselves.
+    </p>
+    <p class="read-segment" data-part="summary">
+      In this affidavit, the witness is swearing under oath that they personally saw the signing take place, that the donor was present during the signing, and that both the signer and the witness meet the legal requirements.
+    </p>
+    <p class="read-segment" data-part="summary">
+      There are important rules about who is not allowed to sign on behalf of the donor. The person named as the attorney in the power of attorney, and the spouse of that person, are both not allowed to sign.
+    </p>
+    <p class="read-segment" data-part="summary">
+      Similarly, there are rules about who cannot serve as a witness. The attorney named in the document, the spouse of the attorney, the donor's own spouse, the person who signed on behalf of the donor, and the spouse of that person — none of these people are allowed to witness the signing.
+    </p>
+    <p class="read-segment" data-part="summary">
+      The witness must also confirm that they believe the donor is at least eighteen years old.
+    </p>
+    <p class="read-segment" data-part="summary">
+      Finally, this affidavit must be sworn before a Commissioner for Oaths in the Province of Alberta.
+    </p>
+  </div>
+
+  <!-- PART 2: Full verbatim reading -->
+  <div class="section" id="fullSection">
+    <span class="section-label">Part 2 — Full Document, Word for Word</span>
+    <h2>Complete Text of POA-2, Form P-2</h2>
+
+    <p class="read-segment" data-part="full">
+      POA-2. Form P-2. Powers of Attorney Act. Affidavit of Attestation of an Enduring Power of Attorney.
+    </p>
+    <p class="read-segment" data-part="full">
+      "I," — and here the name of the witness would be filled in — "of the" — and here their location would be filled in — "in the Province of" — and here the province — "make oath and say:"
+    </p>
+    <p class="read-segment" data-part="full">
+      Number 1. "I was personally present and did see" — the name of the person signing — "who is personally known to me, duly sign the within (or annexed) Power of Attorney on behalf of, and at the direction of, the donor and such signing occurred in the presence of myself and the donor."
+    </p>
+    <p class="read-segment" data-part="full">
+      Number 2. "I believe that the person signing on behalf of the donor is not an ineligible person within the meaning of section 2(3) of the Powers of Attorney Act."
+    </p>
+    <p class="read-segment" data-part="full">
+      Number 3. "I signed the Power of Attorney (as witness) in the presence of the donor."
+    </p>
+    <p class="read-segment" data-part="full">
+      Number 4. "The Power of Attorney was signed at" — and here the location would be filled in — "in the province of" — and here the province — "and I am the subscribing witness thereto."
+    </p>
+    <p class="read-segment" data-part="full">
+      Number 5. "I believe the donor is at least eighteen (18) years of age."
+    </p>
+    <p class="read-segment" data-part="full">
+      Number 6. "I am not an ineligible person within the meaning of section 2(4) of the Powers of Attorney Act."
+    </p>
+    <p class="read-segment" data-part="full">
+      The affidavit is then sworn before a Commissioner for Oaths in and for the Province of Alberta. The form includes a space for the date and the commissioner's expiry date.
+    </p>
+
+    <hr class="divider">
+    <p class="sub-heading">Footnotes</p>
+
+    <p class="read-segment footnote" data-part="full">
+      Now, the footnotes. Section 2(3) of the Powers of Attorney Act states: The following persons may not sign an enduring power of attorney on behalf of the donor:
+    </p>
+    <p class="read-segment footnote" data-part="full">
+      (a) a person designated in the enduring power of attorney as the attorney;
+      (b) the spouse of a person designated in the enduring power of attorney as the attorney.
+    </p>
+    <p class="read-segment footnote" data-part="full">
+      Section 2(4) of the Powers of Attorney Act states: The following persons may not witness the signing of an enduring power of attorney:
+    </p>
+    <p class="read-segment footnote" data-part="full">
+      (a) a person designated in the enduring power of attorney as the attorney;
+      (b) the spouse of a person designated in the enduring power of attorney as the attorney;
+      (c) the spouse of the donor;
+      (d) a person who signs the enduring power of attorney on behalf of the donor;
+      (e) the spouse of a person who signs the enduring power of attorney on behalf of the donor.
+    </p>
+    <p class="read-segment" data-part="full">
+      That concludes the full text of POA-2, Form P-2, the Affidavit of Attestation of an Enduring Power of Attorney under the Powers of Attorney Act of Alberta.
+    </p>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  var synth = window.speechSynthesis;
+  var segments = [];
+  var currentIndex = 0;
+  var isPlaying = false;
+  var rate = 0.8;
+  var iosInterrupted = false;
+  var keepAliveTimer = null;
+
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  function getAllSegments(part) {
+    return Array.from(document.querySelectorAll('.read-segment[data-part="' + part + '"]'));
+  }
+
+  function buildQueue(startPart) {
+    if (startPart === 'summary') {
+      segments = getAllSegments('summary').concat(getAllSegments('full'));
+    } else {
+      segments = getAllSegments('full');
+    }
+    currentIndex = 0;
+  }
+
+  function updateProgress() {
+    var pct = segments.length > 0 ? ((currentIndex) / segments.length) * 100 : 0;
+    document.getElementById('progress').style.width = pct + '%';
+  }
+
+  function clearHighlights() {
+    var els = document.querySelectorAll('.read-segment');
+    for (var i = 0; i < els.length; i++) els[i].classList.remove('active');
+  }
+
+  function showBanner() { document.getElementById('iosBanner').classList.add('visible'); }
+  function hideBanner() { document.getElementById('iosBanner').classList.remove('visible'); }
+
+  function setPlayButton(playing) {
+    var btn = document.getElementById('playBtn');
+    if (playing) {
+      btn.textContent = '⏸ Pause';
+      btn.classList.add('playing');
+    } else {
+      btn.textContent = '▶ Play Summary';
+      btn.classList.remove('playing');
+    }
+  }
+
+  function getVoice() {
+    var voices = synth.getVoices();
+    if (!voices.length) return null;
+    var v = null;
+    for (var i = 0; i < voices.length; i++) {
+      if (voices[i].lang.indexOf('en') === 0 && voices[i].name.indexOf('Samantha') >= 0) { v = voices[i]; break; }
+    }
+    if (!v) { for (var i = 0; i < voices.length; i++) { if (voices[i].lang.indexOf('en-CA') === 0) { v = voices[i]; break; } } }
+    if (!v) { for (var i = 0; i < voices.length; i++) { if (voices[i].lang.indexOf('en') === 0) { v = voices[i]; break; } } }
+    return v;
+  }
+
+  function startKeepAlive() {
+    stopKeepAlive();
+    if (isIOS) {
+      keepAliveTimer = setInterval(function() {
+        if (synth.speaking && !synth.paused) {
+          synth.pause();
+          synth.resume();
+        }
+      }, 5000);
+    }
+  }
+
+  function stopKeepAlive() {
+    if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
+  }
+
+  function speakSegment(index) {
+    if (index >= segments.length) {
+      handleStop();
+      document.getElementById('nowReading').textContent = '✓ Reading complete.';
+      return;
+    }
+
+    var el = segments[index];
+    var text = el.textContent.replace(/\s+/g, ' ').trim();
+
+    clearHighlights();
+    el.classList.add('active');
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    var partLabel = el.getAttribute('data-part') === 'summary' ? 'Summary' : 'Full Reading';
+    document.getElementById('nowReading').textContent =
+      'Reading: ' + partLabel + ' — paragraph ' + (index + 1) + ' of ' + segments.length;
+
+    synth.cancel();
+
+    var utt = new SpeechSynthesisUtterance(text);
+    utt.rate = rate;
+    utt.pitch = 1;
+    utt.lang = 'en-CA';
+
+    var voice = getVoice();
+    if (voice) utt.voice = voice;
+
+    utt.onend = function() {
+      currentIndex = index + 1;
+      updateProgress();
+      if (isPlaying) {
+        setTimeout(function() {
+          if (isPlaying) speakSegment(currentIndex);
+        }, isIOS ? 300 : 50);
+      }
+    };
+
+    utt.onerror = function(e) {
+      if (e.error === 'canceled') return;
+      if (isIOS && isPlaying) {
+        iosInterrupted = true;
+        showBanner();
+        setPlayButton(false);
+        stopKeepAlive();
+        return;
+      }
+      currentIndex = index + 1;
+      if (isPlaying) setTimeout(function() { speakSegment(currentIndex); }, 200);
+    };
+
+    synth.speak(utt);
+    startKeepAlive();
+  }
+
+  window.handlePlay = function() {
+    hideBanner();
+    iosInterrupted = false;
+    if (isPlaying) {
+      synth.cancel(); stopKeepAlive();
+      isPlaying = false; setPlayButton(false);
+      return;
+    }
+    if (segments.length === 0 || currentIndex >= segments.length) buildQueue('summary');
+    isPlaying = true;
+    setPlayButton(true);
+    speakSegment(currentIndex);
+  };
+
+  window.handleSkipToFull = function() {
+    hideBanner(); iosInterrupted = false;
+    synth.cancel(); stopKeepAlive();
+    buildQueue('full');
+    isPlaying = true; setPlayButton(true);
+    speakSegment(0);
+  };
+
+  window.handleStop = function() {
+    hideBanner(); iosInterrupted = false;
+    synth.cancel(); stopKeepAlive();
+    isPlaying = false; clearHighlights();
+    setPlayButton(false);
+    segments = []; currentIndex = 0;
+    updateProgress();
+    document.getElementById('nowReading').textContent = '';
+  };
+
+  window.handleSpeedChange = function() {
+    rate = parseFloat(document.getElementById('speed').value);
+    if (isPlaying) { synth.cancel(); speakSegment(currentIndex); }
+  };
+
+  window.resumeFromTap = function() {
+    hideBanner();
+    if (iosInterrupted && currentIndex < segments.length) {
+      iosInterrupted = false;
+      isPlaying = true; setPlayButton(true);
+      speakSegment(currentIndex);
+    }
+  };
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden && isPlaying && isIOS) {
+      synth.cancel(); stopKeepAlive();
+      iosInterrupted = true; isPlaying = false;
+      setPlayButton(false); showBanner();
+    }
+  });
+
+  synth.getVoices();
+  if (synth.onvoiceschanged !== undefined) {
+    synth.onvoiceschanged = function() { synth.getVoices(); };
+  }
+})();
+</script>
+
+</body>
+</html>
